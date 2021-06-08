@@ -1,0 +1,13 @@
+[
+  { "en": "potato", "es": "papa", "de": "kartoffel" },
+  { "en": "chicken", "es": "pollo", "de": "hähnchen" },
+  { "en": "orange", "es": "naranja", "de": "apfelsine" },
+  { "en": "apple", "es": "manzana", "de": "apfel" },
+  { "en": "pear", "es": "pera", "de": "birne" },
+  { "en": "dog", "es": "perro", "de": "hund" },
+  { "en": "cat", "es": "gato", "de": "katze" },
+  { "en": "tomato", "es": "tomate", "de": "tomate" },
+  { "en": "watermelon", "es": "sandía", "de": "wassermelone" },
+  { "en": "tangerine", "es": "mandarina", "de": "mandarine" },
+  { "en": "grapes", "es": "uvas", "de": "trauben" }
+]
