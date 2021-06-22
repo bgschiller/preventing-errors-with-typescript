@@ -1,17 +1,11 @@
 import { sleep } from './utils';
 import translations from './translations.json';
 
-// 1. change `toLang: string` to be `toLang: SupportedLang`
-// 2. exhaustiveness checking on the languages
-// 3. add toGerman. show how this causes exhaustiveness checking to warn us
-// 4. Notice that there's no way to translate from spanish to german, and the signatures
-//    don't keep us from making that mistake.
 function translate(toLang: string, word: string): string {
   if (toLang === 'en') return toEnglish(word);
   if (toLang === 'es') return toSpanish(word);
   throw new Error(`couldn't translate ${word} to ${toLang}`);
 }
-
 
 function toEnglish(s: string): string {
   const word = translations.find(t => t.es === s);

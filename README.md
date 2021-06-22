@@ -64,7 +64,7 @@ console.log(toEnglish(toEnglish('pollo')));
 
 We could make an argument for it being nonsense: "I can't convert english to english!". Or a no-op: "done". Regardless, neither of those is the current behavior which is to output "(chicken in english)".
 
-The problem is that we're throwing strings around like all strings are the same. When clearly, some strings represent english and some spanish. Let's define a new structure instead, and update our functions to operate one more specific interfaces:
+The problem is that we're throwing strings around like all strings are the same. When clearly, some strings represent English and some Spanish. Let's define a new structure instead, and update our functions to operate one more specific interfaces:
 
 ```typescript
 interface English {
@@ -95,11 +95,7 @@ Argument of type 'English' is not assignable to parameter of type 'Spanish'.
     Type '"en"' is not assignable to type '"es"'.
 ```
 
-How can we improve the situation? Let's take stock first:
-- the main `translate` function accepts and returns a `string`, even though we just decided that was a mistake for `toEnglish` and friends.
-- `toEnglish` only translates from Spanish and not German, `toGerman` only from English and not Spanish, `toSpanish` only from English and not German.
-
-Let's fix the second item first.
+The heart of the issue is that `toEnglish` only translates from Spanish and not from German, `toGerman` only from English and not Spanish, `toSpanish` only from English and not German. Let's enable those functions to accept a word from any language. First, we'll need a type for it.
 
 ```typescript
 type Word = English | Spanish | German;
@@ -143,9 +139,176 @@ Let's warm up by defining that interface. We said it was going to be "a word in 
 
 That certainly _looks_ okay, but we've actually lost something compared to our old definition of `type Word = English | Spanish | German`. We've lost the ability to specify that `toEnglish` _always_ has a `lang` of `'en'`. Back when that was encoded in the type system, we could have written functions that only accepted `English` or only `Spanish` and had that requirement enforced by the type system. Can we avoid the repetition and still keep track that information in the type system?
 
-In fact we can! But it requires a new tool.
+In fact we can! But it requires a new tool—Generic types. We'll come back to this if we have time, but in the meantime, let's put the code back how it was before.
+
+```diff
++interface English {
++  lang: 'en';
++  data: string;
++}
++interface Spanish {
++  lang: 'es';
++  data: string;
++}
++interface German {
++  lang: 'de';
++  data: string;
++}
++type Word = English | Spanish | German;
+
+-interface Word {
+-  lang: SupportedLang;
+-  data: string;
+-}
+```
+
+## Refactoring: `translate` function
+
+Our `to*` functions are now very capable. They accept any supported language and produce words of the desired language. But `translate` hasn't kept pace and is still making assumptions about the language of the incoming words. Update it to include a `fromLang` parameter.
+
+While we're at it, I'm never going to remember the order. Is it `fromLang` then `toLang`? The opposite? Use keyword parameters instead.
+
+```ts
+interface TranslateParams {
+  to: SupportedLang;
+  from: SupportedLang;
+  word: string;
+}
+function translate({ to, from, word }: TranslateParams): string {
+  // ...
+```
+
+### Type Declarations
+
+Navigate over to the console.ts file. Let's make sure it's working before we make changes.
+
+```bash
+$ npx ts-node console-starting-point.ts
+translate to: en
+message: manzana manzana naranja
+Promise { <pending> }
+```
+
+Uh oh. `Promise { <pending> }` doesn't look like English to me! We're treating `result` as if it's a value, but it's just a _Promise_ for a value. This is a case where a type declaration can help us.
+
+```diff
+-const result = translateAPI({
++const result: string[] = translateAPI({
+```
+
+> Type `Promise<string[]>` is missing the following properties from type `string[]`: length, pop, push, concat, and 28 more.
+
+TypeScript rarely needs explicit type annotations, aside from function parameters and return types. It can usually figure out from context what the type will be. However, the code we wrote doesn't always match our expectations. Adding a type declaration is a way of telling TypeScript "I believe this to be the case, but please check me."
+
+
+We can fix this by `await`ing the promise. Another way to catch this error would be if we used result in a way that wouldn't be allowed for a Promise. `console.log` is willing to accept any type, even promises. But we'd have caught the error by doing something like
+
+```ts
+console.log(result.join(' '));
+```
+
+> Property 'join' does not exist on type `Promise<string[]>`.
+
+## Accepting input
+
+It's great to have type-safety within our program, but any useful program will eventually need to communicate with the outside world. How can we ensure that data from "outside" matches the shape described by our types?
+
+If you change the import for the translate api to point at our updated file, you should see a new error
+
+```diff
+-import translateAPI from './translate-starting-point';
++import translateAPI from './translate';
+```
+
+> Type `string` is not assignable to type `SupportedLang`.
+
+We're passing `endLang` in a position where `translateAPI` wants to be given a `SupportedLang`. But `endLang` came from `question()`, which returns a (Promise of a) `string`. Maybe we can cross our fingers and hope? Let's use a type assertion. Add `fromLang` as well.
+
+```diff
+ async function main() {
++  const startLang = await question("translate from: ");
+   const endLang = await question("translate to: ");
+   const message = await question("message: ");
+   const result = translateAPI({
++    fromLang: startLang as SupportedLang,
++    toLang: endLang as SupportedLang,
+-    toLang: endLang,
+     words: message.split(/\s+/),
+   });
+```
+
+Let's try it out!
+
+```bash
+npx ts-node console.ts
+translate from: en
+translate to: de
+message: naranja naranja manzana
+orange orange apple
+```
+
+It works! But what if we misbehave?
+
+```bash
+npx ts-node console.ts
+translate from: pig latin
+translate to: gibberish
+message: is-ay is-thay ight-ray
+
+/Users/brian/code/preventing-errors-with-typescript/utils.ts:6
+  throw new Error(`Expected to never reach this case: ${x}`);
+        ^
+Error: Expected to never reach this case: gibberish
+```
+
+That's unfortunate. In TypeScript's defense, by writing `startLang as SupportedLang` we were saying "I pinky-swear that `startLang` can be safely treated as a `SupportedLang`, and I'm willing to accept the consequences if that turns out to be false". It did turn out to be false.
+
+We need to somehow link the compile-time notion of a `SupportedLang` with a check we can perform at runtime. Luckily, TypeScript has this ability, in a feature called Type Guards.
+
+## Type Guards
+
+Type guards are useful when you want to go from a broad type to a more narrow type. We've actually already been using some built-in type guards without knowing about it!
+
+```ts
+interface German {
+  lang: 'de';
+  data: string;
+}
+type Word = English | Spanish | German;
+
+function toGerman(w: Word): German {
+  if (w.lang === 'de') return w;
+  // if (w.lang === 'de') acts as a type guard.
+  // within that
+```
+`w` is any `Word`—English, Spanish, or German. But we're committed to returning only German words. `if (w.lang === 'de')` acts as a type guard. Any `w`s that pass the test, TypeScript can be sure are not just any `Word`, but are really `German` ones.
+
+Instead of a type assertion, let's try using an if-statement like that.
+
+```ts
+  if (
+    (startLang === 'en' || startLang === 'es' || startLang === 'de') &&
+    (endLang === 'en' || endLang === 'es' || endLang === 'de')
+  ) {
+```
+
+So that works. But... gross, right? It's a lot of repetition and the knowledge of which languages are supported is spread across two files. Can we do better?
+
+In addition to the built-in type guards, TypeScript lets us define our own by writing a function. Let's go back to translate.ts and add one.
+
+```ts
+function isSupportedLang(lang: string): lang is SupportedLang {
+  return lang === 'en' || lang === 'es' || lang === 'de';
+}
+```
+
+Like type assertions, this is another place where it's totally possible to lie to the compiler. No one is checking (except during code review). Be careful when writing these by hand.
+
+Libraries can also help you bridge the gap between compile-time checks and runtime reality. I recommend `zod`, but `Runtypes` and `io-ts` are also good.
 
 ## Generic types
+
+We said we'd come back if we had time. If you're reading this, we must have time!
 
 ```typescript
 interface Word<T extends SupportedLang = SupportedLang> {

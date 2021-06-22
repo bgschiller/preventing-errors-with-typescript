@@ -1,42 +1,50 @@
-import { sleep, assertUnreachable } from './utils';
+import { assertUnreachable, sleep } from './utils';
 import translations from './translations.json';
 
-// 1. change `toLang: string` to be `toLang: SupportedLang`
-// 2. exhaustiveness checking on the languages
-// 3. add toGerman. show how this causes exhaustiveness checking to warn us
-// 4. Notice that there's no way to translate from spanish to german, and the signatures
-//    don't keep us from making that mistake.
-type SupportedLang = 'en' | 'es' | 'de'; // 🚩 delete me
-function translate(toLang: SupportedLang, word: string): string { // 🚩 change SupportedLang back to string
-  if (toLang === 'en') return toEnglish({ data: word, lang: 'es' }).data;
-  if (toLang === 'es') return toSpanish({ data: word, lang: 'en' }).data;
-  if (toLang === 'de') return toGerman({ data: word, lang: 'en' }).data;
-  assertUnreachable(toLang);
+export function isSupportedLang(lang: string): lang is SupportedLang {
+  return lang === 'en' || lang === 'es' || lang === 'de';
+}
+export type SupportedLang = 'en' | 'es' | 'de';
+interface TranslateParams {
+  to: SupportedLang;
+  from: SupportedLang;
+  word: string;
+}
+function translate({ to, from, word }: TranslateParams): string {
+  if (to === 'en') return toEnglish({ data: word, lang: from }).data;
+  if (to === 'es') return toSpanish({ data: word, lang: from }).data;
+  if (to === 'de') return toGerman({ data: word, lang: from }).data;
+  assertUnreachable(to);
 }
 
-interface Word<T extends SupportedLang = SupportedLang> {
-  lang: T;
+interface English {
+  lang: 'en';
   data: string;
 }
-
-function isLang<T extends SupportedLang>(w: Word, lang: T): w is Word<T> {
-  return w.lang === lang;
+interface Spanish {
+  lang: 'es';
+  data: string;
 }
+interface German {
+  lang: 'de';
+  data: string;
+}
+type Word = English | Spanish | German;
 
-function toEnglish(w: Word): Word<'en'> {
-  if (isLang(w, 'en')) return w;
+function toEnglish(w: Word): English {
+  if (w.lang === 'en') return w;
   const word = translations.find(t => t[w.lang] === w.data);
-  if (!word) return { lang: 'en', data: `(${w.data} in english)` };
+  if (!word) return { data: `(${w.data} in english)`, lang: 'en' };
   return { data: word.en, lang: 'en' };
 }
-function toSpanish(w: Word): Word<'es'> {
-  if (isLang(w, 'es')) return w;
+function toSpanish(w: Word): Spanish {
+  if (w.lang === 'es') return w;
   const word = translations.find(t => t[w.lang] === w.data);
   if (!word) return { data: `(${w.data} en español)`, lang: 'es' };
-  return { data: word.en, lang: 'es' };
+  return { data: word.es, lang: 'es' };
 }
-function toGerman(w: Word): Word<'de'> {
-  if (isLang(w, 'de')) return w;
+function toGerman(w: Word): German {
+  if (w.lang === 'de') return w;
   const word = translations.find(t => t[w.lang] === w.data);
   if (!word) return { data: `(${w.data} auf deutsch)`, lang: 'de' };
   return { data: word.de, lang: 'de' };
@@ -44,14 +52,16 @@ function toGerman(w: Word): Word<'de'> {
 
 interface ApiParams {
   words: string[];
+  fromLang: SupportedLang;
   toLang: SupportedLang;
 }
 export default async function apiController(params: ApiParams): Promise<string[]> {
   await sleep(10); // pretend we're talking to some external API.
-  return params.words.map(w => translate(params.toLang, w));
+  return params.words.map(w => translate({ to: params.toLang, from: params.fromLang, word: w }));
 }
 
 if (require.main === module) {
-  console.log(translate('en', 'pollo'));
-  console.log(toEnglish(toEnglish({ data: 'pollo', lang: 'en' })));
+  console.log(translate({ to: 'en', from: 'es', word: 'pollo'}));
+  console.log(translate({ to: 'de', from: 'en', word: 'watermelon'}));
+  console.log(toEnglish(toEnglish({ lang: 'es', data: 'pollo' })));
 }

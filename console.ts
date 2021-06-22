@@ -1,4 +1,4 @@
-import translateAPI from './translate-starting-point';
+import translateAPI, { isSupportedLang, SupportedLang } from './translate';
 import readline from 'readline';
 
 const rl = readline.createInterface({
@@ -14,13 +14,19 @@ function question(prompt: string): Promise<string> {
 }
 
 async function main() {
+  const startLang = await question("translate from: ");
   const endLang = await question("translate to: ");
   const message = await question("message: ");
-  const result = translateAPI({
-    toLang: endLang,
-    words: message.split(/\s+/),
-  });
-  console.log(result);
+  if (isSupportedLang(startLang) && isSupportedLang(endLang)) {
+    const result = await translateAPI({
+      fromLang: startLang,
+      toLang: endLang,
+      words: message.split(/\s+/),
+    });
+    console.log(result.join(' '));
+  } else {
+    console.warn('Invalid language');
+  }
   rl.close();
 }
 
