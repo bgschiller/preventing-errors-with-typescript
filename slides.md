@@ -87,6 +87,14 @@ see `type-guards.ts`
 
 ---
 
+## Type Guards and User Input
+
+Convert a totally unknown type to a convenient internal one
+
+see `user-input.ts`
+
+---
+
 ## Livecoding
 
 see `translate.ts`

@@ -13,3 +13,4 @@ function welcomePeople(x: string[] | string) {
     console.log("Welcome lone traveler " + x);
   }
 }
+
