@@ -1,67 +1,37 @@
-import { assertUnreachable, sleep } from './utils';
+import { sleep } from './utils';
 import translations from './translations.json';
 
-export function isSupportedLang(lang: string): lang is SupportedLang {
-  return lang === 'en' || lang === 'es' || lang === 'de';
-}
-export type SupportedLang = 'en' | 'es' | 'de';
-interface TranslateParams {
-  to: SupportedLang;
-  from: SupportedLang;
-  word: string;
-}
-function translate({ to, from, word }: TranslateParams): string {
-  if (to === 'en') return toEnglish({ data: word, lang: from }).data;
-  if (to === 'es') return toSpanish({ data: word, lang: from }).data;
-  if (to === 'de') return toGerman({ data: word, lang: from }).data;
-  assertUnreachable(to);
+function translate(toLang: string, word: string): string {
+  if (toLang === 'en') return toEnglish(word);
+  if (toLang === 'es') return toSpanish(word);
+  throw new Error(`couldn't translate ${word} to ${toLang}`);
 }
 
-interface English {
-  lang: 'en';
-  data: string;
+function toEnglish(s: string): string {
+  const word = translations.find(t => t.es === s);
+  if (!word) return `(${s} in english)`;
+  return word.en;
 }
-interface Spanish {
-  lang: 'es';
-  data: string;
+function toSpanish(e: string): string {
+  const word = translations.find(t => t.en === e);
+  if (!word) return `(${e} en español)`;
+  return word.en;
 }
-interface German {
-  lang: 'de';
-  data: string;
-}
-type Word = English | Spanish | German;
-
-function toEnglish(w: Word): English {
-  if (w.lang === 'en') return w;
-  const word = translations.find(t => t[w.lang] === w.data);
-  if (!word) return { data: `(${w.data} in english)`, lang: 'en' };
-  return { data: word.en, lang: 'en' };
-}
-function toSpanish(w: Word): Spanish {
-  if (w.lang === 'es') return w;
-  const word = translations.find(t => t[w.lang] === w.data);
-  if (!word) return { data: `(${w.data} en español)`, lang: 'es' };
-  return { data: word.es, lang: 'es' };
-}
-function toGerman(w: Word): German {
-  if (w.lang === 'de') return w;
-  const word = translations.find(t => t[w.lang] === w.data);
-  if (!word) return { data: `(${w.data} auf deutsch)`, lang: 'de' };
-  return { data: word.de, lang: 'de' };
-}
+// function toGerman(e: string): string {
+//   const word = translations.find(t => t.es === e);
+//   if (!word) return `(${e} auf deutsch)`;
+//   return word.de;
+// }
 
 interface ApiParams {
   words: string[];
-  fromLang: SupportedLang;
-  toLang: SupportedLang;
+  toLang: string;
 }
 export default async function apiController(params: ApiParams): Promise<string[]> {
   await sleep(10); // pretend we're talking to some external API.
-  return params.words.map(w => translate({ to: params.toLang, from: params.fromLang, word: w }));
+  return params.words.map(w => translate(params.toLang, w));
 }
 
 if (require.main === module) {
-  console.log(translate({ to: 'en', from: 'es', word: 'pollo'}));
-  console.log(translate({ to: 'de', from: 'en', word: 'watermelon'}));
-  console.log(toEnglish(toEnglish({ lang: 'es', data: 'pollo' })));
+  console.log(translate('english', 'pollo'));
 }

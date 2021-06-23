@@ -64,27 +64,18 @@ console.log(toEnglish(toEnglish('pollo')));
 
 We could make an argument for it being nonsense: "I can't convert english to english!". Or a no-op: "done". Regardless, neither of those is the current behavior which is to output "(chicken in english)".
 
-The problem is that we're throwing strings around like all strings are the same. When clearly, some strings represent English and some Spanish. Let's define a new structure instead, and update our functions to operate one more specific interfaces:
+The problem is that we're throwing strings around like all strings are the same. When clearly, some strings represent English and some Spanish. Let's define a new structure instead, and update our functions to operate on more specific interfaces:
 
 ```typescript
-interface English {
-  lang: 'en';
+interface Word {
+  lang: SupportedLang;
   data: string;
 }
-interface Spanish {
-  lang: 'es';
-  data: string;
-}
-interface German {
-  lang: 'de';
-  data: string;
-}
-
 // update these functions to look like
 // (and fill out the bodies)
-function toEnglish(s: Spanish): English;
-function toSpanish(e: English): Spanish;
-function toGerman(e: English): German;
+function toEnglish(w: Word): Word;
+function toSpanish(w: Word): Word;
+function toGerman(w: Word): Word;
 ```
 
 Code ends up kinda gross, but at least we're getting a type error now:
